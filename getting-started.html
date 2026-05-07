@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aisera Debug Viewer — Getting Started — v1.0.3</title>
+  <style>
+    :root {
+      --accent:      #ea580c;
+      --accent-dark: #c2410c;
+      --accent-light:#ffedd5;
+      --surface:     #ffffff;
+      --surface-2:   #f8fafc;
+      --surface-3:   #f1f5f9;
+      --border:      #e2e8f0;
+      --text:        #0f172a;
+      --text-2:      #64748b;
+      --text-3:      #94a3b8;
+      --green:       #16A34A;
+      --green-light: #DCFCE7;
+      --red:         #DC2626;
+      --red-light:   #FEE2E2;
+      --amber:       #D97706;
+      --amber-light: #FEF3C7;
+      --radius:      10px;
+      --shadow:      0 1px 3px rgba(0,0,0,.08), 0 4px 12px rgba(0,0,0,.05);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--surface-2);
+    }
+
+    /* ── header ── */
+    .page-header {
+      background: linear-gradient(135deg, #1e293b 0%, #334155 60%, #1a1f2b 100%);
+      color: #fff;
+      padding: 48px 40px 40px;
+    }
+    .page-header .eyebrow {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      opacity: .7;
+      margin-bottom: 10px;
+    }
+    .page-header h1 {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -.02em;
+      margin-bottom: 10px;
+    }
+    .page-header p {
+      font-size: 16px;
+      opacity: .85;
+      max-width: 580px;
+    }
+    .version-badge {
+      display: inline-block;
+      background: rgba(255,255,255,.18);
+      border: 1px solid rgba(255,255,255,.3);
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      padding: 3px 10px;
+      margin-top: 16px;
+    }
+
+    /* ── layout ── */
+    .page-body {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+
+    /* ── section headings ── */
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+    h2 {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -.01em;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+    h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    /* ── prose ── */
+    p { color: var(--text-2); margin-bottom: 14px; }
+    p:last-child { margin-bottom: 0; }
+    strong { color: var(--text); font-weight: 600; }
+    code {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 12px;
+      background: var(--surface-3);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 5px;
+      color: var(--accent);
+    }
+
+    /* ── divider ── */
+    .section-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 48px 0;
+    }
+
+    /* ── step cards (installation) ── */
+    .steps { display: flex; flex-direction: column; gap: 0; }
+    .step {
+      display: flex;
+      gap: 20px;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .step:last-child { border-bottom: none; }
+    .step-num {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 2px;
+    }
+    .step-body h3 { margin-bottom: 4px; }
+    .step-body p { margin-bottom: 6px; }
+    .step-note {
+      font-size: 13px;
+      color: var(--text-3);
+      background: var(--surface-3);
+      border-left: 3px solid var(--border);
+      padding: 6px 10px;
+      border-radius: 0 4px 4px 0;
+      margin-top: 6px;
+    }
+
+    /* ── gif placeholder ── */
+    .gif-placeholder {
+      width: 100%;
+      background: var(--surface-3);
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 40px 20px;
+      margin: 20px 0;
+      color: var(--text-3);
+    }
+    .gif-placeholder .gif-icon {
+      font-size: 28px;
+      opacity: .5;
+    }
+    .gif-placeholder .gif-label {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--text-3);
+    }
+    .gif-placeholder .gif-desc {
+      font-size: 13px;
+      color: var(--text-3);
+      text-align: center;
+      max-width: 340px;
+    }
+
+    /* ── tab showcase ── */
+    .tab-list { display: flex; flex-direction: column; gap: 16px; margin: 20px 0; }
+    .tab-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .tab-item-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-2);
+    }
+    .tab-badge {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 5px;
+      padding: 2px 8px;
+    }
+    .tab-item-header h3 { margin: 0; font-size: 15px; }
+    .tab-item-body { padding: 14px 18px; }
+    .tab-item-body p { font-size: 14px; }
+    .tab-item-body ul {
+      margin: 8px 0 0 18px;
+      color: var(--text-2);
+      font-size: 14px;
+    }
+    .tab-item-body ul li { margin-bottom: 4px; }
+
+    /* ── tips ── */
+    .tips-list { display: flex; flex-direction: column; gap: 10px; margin: 16px 0; }
+    .tip {
+      display: flex;
+      gap: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      box-shadow: var(--shadow);
+    }
+    .tip-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    .tip p { font-size: 14px; margin: 0; }
+
+    /* ── callout ── */
+    .callout {
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      display: flex;
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .callout.info  { background: var(--accent-light); border: 1px solid #fed7aa; }
+    .callout.warn  { background: var(--amber-light);  border: 1px solid #FDE68A; }
+    .callout.good  { background: var(--green-light);  border: 1px solid #BBF7D0; }
+    .callout-icon  { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    .callout p     { font-size: 14px; margin: 0; color: var(--text); }
+
+    /* ── settings table ── */
+    .settings-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      margin: 16px 0;
+    }
+    .settings-table th {
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      padding: 8px 12px;
+      border-bottom: 2px solid var(--border);
+    }
+    .settings-table td {
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+      color: var(--text-2);
+    }
+    .settings-table td:first-child { color: var(--text); font-weight: 500; }
+    .settings-table tr:last-child td { border-bottom: none; }
+  </style>
+</head>
+<body>
+
+  <!-- ══ HEADER ══ -->
+  <header class="page-header">
+    <div class="eyebrow">Chrome Extension</div>
+    <h1>Aisera Debug Viewer</h1>
+    <p>Surface real-time debug data from the Aisera platform directly in your browser — no DevTools, no raw network traffic.</p>
+    <div class="version-badge">Version 1.0.3</div>
+  </header>
+
+  <div class="page-body">
+
+    <!-- ══ INSTALLATION ══ -->
+    <div class="section-label">Setup</div>
+    <h2>Installation</h2>
+    <p>The extension is distributed as a <code>.zip</code> file and installed manually using Chrome's Developer Mode.</p>
+
+    <div class="gif-placeholder" style="height:180px;">
+      <div class="gif-icon">🎬</div>
+      <div class="gif-label">Animated GIF</div>
+      <div class="gif-desc">Full installation walkthrough — unzip, open chrome://extensions, enable Developer Mode, Load unpacked</div>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h3>Unzip the extension</h3>
+          <p>Extract the <code>.zip</code> file to a <strong>permanent folder</strong> on your computer. Chrome loads the extension directly from this folder — do not move or delete it after installation.</p>
+          <div class="step-note">Example: <code>C:\Users\YourName\Extensions\AiseraDebug\</code> or <code>~/Extensions/AiseraDebug/</code></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3>Open Chrome Extensions</h3>
+          <p>Navigate to <code>chrome://extensions</code> in your browser, or open the Chrome menu <strong>⋮ → More tools → Extensions</strong>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h3>Enable Developer Mode</h3>
+          <p>Toggle <strong>Developer mode</strong> on in the top-right corner of the Extensions page.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h3>Load the extension</h3>
+          <p>Click <strong>Load unpacked</strong> and select the folder you extracted in Step 1 — the one containing <code>manifest.json</code>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <h3>Pin it (optional)</h3>
+          <p>Click the puzzle-piece icon in the Chrome toolbar, find <strong>Aisera Debug</strong>, and click the pin icon to keep it visible.</p>
+        </div>
+      </div>
+    </div>
+
+    <hr class="section-divider" />
+
+    <!-- ══ OPENING THE PANEL ══ -->
+    <div class="section-label">Basic Usage</div>
+    <h2>Opening the Debug Panel</h2>
+    <p>Once installed, the extension is always ready on any Aisera page. Here's how to use it:</p>
+
+    <div class="gif-placeholder" style="height:220px;">
+      <div class="gif-icon">🎬</div>
+      <div class="gif-label">Animated GIF</div>
+      <div class="gif-desc">Click Debug button → panel slides in from the right → data appears</div>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h3>Navigate to an Aisera page</h3>
+          <p>Go to any URL on <code>login.aisera.cloud</code>. The floating <strong>Debug</strong> button appears automatically.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3>Trigger a response</h3>
+          <p>Send a chat message, start a flow, or perform any action that triggers an AI or workflow response.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h3>Click Debug</h3>
+          <p>The panel slides in from the right. You can also use the keyboard shortcut <code>Ctrl+D</code> (configurable in Settings).</p>
+          <div class="step-note">You can drag the Debug button anywhere on screen if it's in the way.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout good">
+      <div class="callout-icon">✅</div>
+      <p>The panel <strong>updates automatically</strong> as new responses come in. You do not need to close and reopen it.</p>
+    </div>
+
+    <hr class="section-divider" />
+
+    <!-- ══ TABS ══ -->
+    <div class="section-label">The Panel</div>
+    <h2>Tabs</h2>
+    <p>The panel has six tabs. Use <code>Ctrl+[</code> and <code>Ctrl+]</code> to cycle between them (shortcuts are configurable).</p>
+
+    <div class="tab-list">
+
+      <div class="tab-item">
+        <div class="tab-item-header">
+          <div class="tab-badge">Dashboard</div>
+          <h3>Your personalized summary</h3>
+        </div>
+        <div class="tab-item-body">
+          <p>Pin any value from the Debug or Flow Debug tab to create a persistent summary view. Pinned cards survive page reloads and browser sessions.</p>
+          <ul>
+            <li>Drag the ⠿ handle to reorder cards</li>
+            <li>Remove individual cards with ×, or use <strong>Deselect All</strong> to clear everything</li>
+            <li>Each field within a card is individually collapsible</li>
+          </ul>
+          <div class="gif-placeholder" style="height:180px; margin-top:14px;">
+            <div class="gif-icon">🎬</div>
+            <div class="gif-label">Animated GIF</div>
+            <div class="gif-desc">Pinning a card from the Debug tab → it appears on the Dashboard</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-item">
+        <div class="tab-item-header">
+          <div class="tab-badge">Errors</div>
+          <h3>Automatic error detection</h3>
+        </div>
+        <div class="tab-item-body">
+          <p>Automatically scans the full response payload for error indicators — null values, empty strings, failure status codes, and warning flags.</p>
+          <ul>
+            <li>Each card shows the field name, a <strong>breadcrumb path</strong> to its location in the JSON, and (for flow nodes) the node label</li>
+            <li>Click <strong>→ Debug</strong> to jump to the relevant card in the Debug or Flow Debug tab and highlight it in red</li>
+            <li>If no issues are found, the tab shows a green checkmark</li>
+          </ul>
+          <div class="gif-placeholder" style="height:180px; margin-top:14px;">
+            <div class="gif-icon">🎬</div>
+            <div class="gif-label">Animated GIF</div>
+            <div class="gif-desc">Errors tab with cards → clicking → Debug jumps and highlights the relevant node card</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-item">
+        <div class="tab-item-header">
+          <div class="tab-badge">Debug</div>
+          <h3>Structured data view</h3>
+        </div>
+        <div class="tab-item-body">
+          <p>Displays the AI Lens debug payload as expandable/collapsible cards. Values are color-coded by type. Long fields auto-collapse with a preview.</p>
+          <ul>
+            <li>Use the checkboxes to pin cards to the Dashboard</li>
+            <li><strong>Select All / Deselect All</strong> controls all pins at once</li>
+            <li>Click the <strong>{ }</strong> button on any node to open a data panel with copyable JSON</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="tab-item">
+        <div class="tab-item-header">
+          <div class="tab-badge">Flow Debug</div>
+          <h3>Workflow node execution</h3>
+        </div>
+        <div class="tab-item-body">
+          <p>Shows each workflow node as a collapsible card with Input, Output, Conditions, Node ID, and Execution Time. Subflows are indented hierarchically.</p>
+          <ul>
+            <li>A status badge at the top shows overall flow execution status</li>
+            <li>Nodes with errors are flagged in red at the top of their card</li>
+            <li>Click <strong>{ }</strong> to open the full data panel for any node</li>
+          </ul>
+          <div class="gif-placeholder" style="height:180px; margin-top:14px;">
+            <div class="gif-icon">🎬</div>
+            <div class="gif-label">Animated GIF</div>
+            <div class="gif-desc">Scrolling through node cards, expanding a subflow, opening a data panel</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-item">
+        <div class="tab-item-header">
+          <div class="tab-badge">Raw JSON</div>
+          <h3>Full unfiltered payload</h3>
+        </div>
+        <div class="tab-item-body">
+          <p>The complete, unmodified API response as an interactive collapsible JSON tree. Use this when you need to inspect the full payload without any filtering. Click <strong>Copy JSON</strong> to copy the raw text.</p>
+        </div>
+      </div>
+
+      <div class="tab-item">
+        <div class="tab-item-header">
+          <div class="tab-badge">Settings</div>
+          <h3>Persistent preferences</h3>
+        </div>
+        <div class="tab-item-body">
+          <p>All settings are stored across sessions. Changes take effect immediately — no reload required.</p>
+          <div class="gif-placeholder" style="height:160px; margin-top:10px;">
+            <div class="gif-icon">🎬</div>
+            <div class="gif-label">Animated GIF</div>
+            <div class="gif-desc">Opening Settings, changing accent color, reordering Flow Debug Sections</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <hr class="section-divider" />
+
+    <!-- ══ FLOW DEBUG SECTIONS ══ -->
+    <div class="section-label">Settings Deep Dive</div>
+    <h2>Flow Debug Sections</h2>
+    <p>The Flow Debug tab shows different content depending on whether you're on the <strong>AI Lens</strong> page or a <strong>workflow-details</strong> page. Settings gives you two independent lists — one per page type — so you can control exactly which sections appear and in what order for each context.</p>
+
+    <div class="gif-placeholder" style="height:200px;">
+      <div class="gif-icon">🎬</div>
+      <div class="gif-label">Animated GIF</div>
+      <div class="gif-desc">Reordering and toggling sections in the AI Lens list vs. the Workflow Details list</div>
+    </div>
+
+    <div class="callout info">
+      <div class="callout-icon">💡</div>
+      <p>Sections that are enabled but absent or empty in the current response appear at the bottom of the Flow Debug tab with a status badge — <strong>empty</strong> or <strong>not in response</strong>.</p>
+    </div>
+
+    <hr class="section-divider" />
+
+    <!-- ══ DASHBOARD PINNING ══ -->
+    <h2>Pinning to the Dashboard</h2>
+    <p>Every card in the Debug and Flow Debug tabs can be pinned to the Dashboard using the checkbox in its top-right corner — including <strong>Executed Functions</strong>, <strong>LLM Calls</strong>, and <strong>Durations</strong> on the AI Lens page.</p>
+
+    <div class="gif-placeholder" style="height:200px;">
+      <div class="gif-icon">🎬</div>
+      <div class="gif-label">Animated GIF</div>
+      <div class="gif-desc">Checking a pin checkbox → switching to Dashboard → card appears → dragging to reorder</div>
+    </div>
+
+    <hr class="section-divider" />
+
+    <!-- ══ ERROR JUMP ══ -->
+    <h2>Jumping from Errors to Debug</h2>
+    <p>Each card in the Errors tab has a <strong>→ Debug</strong> button. Clicking it switches to the Debug or Flow Debug tab, scrolls to the relevant card, and briefly highlights it with a red glow so you can find it instantly.</p>
+
+    <div class="gif-placeholder" style="height:200px;">
+      <div class="gif-icon">🎬</div>
+      <div class="gif-label">Animated GIF</div>
+      <div class="gif-desc">Clicking → Debug on an error card → tab switches → card scrolls into view and flashes red</div>
+    </div>
+
+    <hr class="section-divider" />
+
+    <!-- ══ KEYBOARD SHORTCUTS ══ -->
+    <h2>Keyboard Shortcuts</h2>
+    <p>All shortcuts are configurable in Settings under <strong>Behavior → Keyboard Shortcuts</strong>. Click a shortcut field and press any key combination to reassign it.</p>
+
+    <table class="settings-table">
+      <thead>
+        <tr>
+          <th>Action</th>
+          <th>Default Shortcut</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Toggle panel open / closed</td>
+          <td><code>Ctrl+D</code></td>
+        </tr>
+        <tr>
+          <td>Previous tab</td>
+          <td><code>Ctrl+[</code></td>
+        </tr>
+        <tr>
+          <td>Next tab</td>
+          <td><code>Ctrl+]</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <hr class="section-divider" />
+
+    <!-- ══ SETTINGS REFERENCE ══ -->
+    <h2>Settings Reference</h2>
+
+    <h3 style="margin: 20px 0 8px; color: var(--text-2); font-size:13px; text-transform:uppercase; letter-spacing:.06em;">Display</h3>
+    <table class="settings-table">
+      <thead><tr><th>Setting</th><th>What It Does</th></tr></thead>
+      <tbody>
+        <tr><td>Push page content</td><td>Shifts the page left when the panel opens. Automatically disabled on the AI Lens page.</td></tr>
+        <tr><td>Auto-fill test email</td><td>Fills the User Email field in the Test Flow modal automatically.</td></tr>
+        <tr><td>Test email address</td><td>The email address inserted into the Test Flow modal.</td></tr>
+        <tr><td>Auto-click OK</td><td>Automatically clicks OK in the Test Flow modal after filling the email.</td></tr>
+        <tr><td>Auto-collapse long fields</td><td>Collapses fields whose value exceeds the character limit, with a preview and confirmation to expand.</td></tr>
+        <tr><td>Truncate long values</td><td>Cuts off long strings in the Debug tab at a configurable character limit.</td></tr>
+        <tr><td>Subflow node indent</td><td>How far subflow node cards are indented per nesting level.</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin: 20px 0 8px; color: var(--text-2); font-size:13px; text-transform:uppercase; letter-spacing:.06em;">Error Detection</h3>
+    <table class="settings-table">
+      <thead><tr><th>Setting</th><th>What It Does</th></tr></thead>
+      <tbody>
+        <tr><td>Flag warnings as errors</td><td>Includes warning-type fields in the Errors tab.</td></tr>
+        <tr><td>Show node errors only</td><td>Hides non-node errors from the Errors tab.</td></tr>
+        <tr><td>Show node errors first</td><td>Node error cards appear before all others.</td></tr>
+        <tr><td>Flash duration</td><td>How long the red highlight animation lasts when jumping to a card.</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin: 20px 0 8px; color: var(--text-2); font-size:13px; text-transform:uppercase; letter-spacing:.06em;">Appearance</h3>
+    <table class="settings-table">
+      <thead><tr><th>Setting</th><th>What It Does</th></tr></thead>
+      <tbody>
+        <tr><td>Accent color</td><td>Color used for buttons, active tabs, and highlights throughout the panel.</td></tr>
+        <tr><td>String / Number / Boolean colors</td><td>Syntax highlight colors for JSON values.</td></tr>
+        <tr><td>Base font size</td><td>Overall UI text size.</td></tr>
+        <tr><td>Card font size</td><td>Text size inside value cards.</td></tr>
+        <tr><td>Debug button</td><td>Background color, text color, font size, width, and height of the floating Debug button.</td></tr>
+      </tbody>
+    </table>
+
+    <hr class="section-divider" />
+
+    <!-- ══ TIPS ══ -->
+    <div class="section-label">Tips</div>
+    <h2>Tips &amp; Tricks</h2>
+
+    <div class="tips-list">
+      <div class="tip">
+        <div class="tip-icon">🖱️</div>
+        <p>The <strong>Debug button can be dragged</strong> anywhere on screen. Its position is remembered across sessions.</p>
+      </div>
+      <div class="tip">
+        <div class="tip-icon">🔄</div>
+        <p><strong>Data updates automatically</strong> while the panel is open. You don't need to reopen the panel after each action.</p>
+      </div>
+      <div class="tip">
+        <div class="tip-icon">📌</div>
+        <p><strong>Pinned dashboard cards survive page reloads.</strong> The paths are stored in Chrome's local extension storage, not the page.</p>
+      </div>
+      <div class="tip">
+        <div class="tip-icon">🔗</div>
+        <p>Click any <strong>field key label</strong> inside a card to collapse or expand that individual field.</p>
+      </div>
+      <div class="tip">
+        <div class="tip-icon">{ }</div>
+        <p>The <strong>{ } button</strong> on any node card opens a data panel with the full JSON for that node — including a Copy button that expands any nested JSON strings automatically.</p>
+      </div>
+      <div class="tip">
+        <div class="tip-icon">🔢</div>
+        <p>The <strong>workflow test counter</strong> at the bottom of Settings tracks how many times you've clicked OK in the Test Flow modal. Reset it any time.</p>
+      </div>
+    </div>
+
+  </div><!-- /page-body -->
+
+</body>
+</html>

@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "Aisera Debug",
+  "version": "1.0.4",
+  "description": "Debug viewer for Aisera pages",
+
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["*://*.login.aisera.cloud/*"],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["*://*.login.aisera.cloud/*"],
+      "js": ["injected.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["*://*.login.aisera.cloud/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "web_accessible_resources": [
+    {
+      "resources": ["debugViewer.html"],
+      "matches": ["*://*.login.aisera.cloud/*"]
+    }
+  ],
+
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}

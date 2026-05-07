@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aisera Debug Viewer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    :root {
+      --bg:           #f3f4f6;
+      --surface:      #ffffff;
+      --border:       #e1e4e8;
+      --accent:       #4F46E5;
+      --accent-light: rgba(79,70,229,0.12);
+      --text:         #1f2328;
+      --text-muted:   #6b7280;
+      --radius:       10px;
+      --danger:       #b91c1c;
+      --danger-bg:    #fee2e2;
+    }
+
+    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, sans-serif;
+      font-size: var(--base-font-size, 14px);
+      color: var(--text);
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── header ── */
+    #header {
+      flex-shrink: 0;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    #header h1 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.01em;
+      flex-shrink: 0;
+    }
+    #source-badge {
+      flex: 1;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2px 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #close-btn {
+      flex-shrink: 0;
+      width: 26px; height: 26px;
+      border: none; background: transparent;
+      border-radius: 6px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; color: var(--text-muted);
+      transition: background 0.12s, color 0.12s;
+      padding: 0;
+    }
+    #close-btn:hover { background: var(--danger-bg); color: var(--danger); }
+
+    /* ── main ── */
+    #main {
+      flex: 1; overflow: hidden;
+      display: flex; flex-direction: column;
+      padding: 12px; gap: 10px;
+    }
+
+    #loading {
+      flex: 1; display: flex;
+      align-items: center; justify-content: center;
+      color: var(--text-muted);
+    }
+
+    /* ── shared section ── */
+    .section { display: none; flex: 1; overflow: hidden; flex-direction: column; gap: 10px; }
+    .section.visible { display: flex; }
+
+    /* ── tab bar ── */
+    .tab-bar {
+      flex-shrink: 0;
+      display: flex; gap: 3px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 9px; padding: 4px;
+      width: fit-content;
+    }
+    .tab-btn {
+      border: none; background: transparent;
+      padding: 5px 16px; border-radius: 6px;
+      font-size: 12.5px; font-weight: 500;
+      color: var(--text-muted); cursor: pointer;
+      transition: background 0.12s, color 0.12s; line-height: 1.4;
+    }
+    .tab-btn:hover   { background: #f1f3f5; color: var(--text); }
+    .tab-btn.active  { background: var(--accent); color: #fff; }
+
+    /* ── panel wrapper ── */
+    #panel-wrap {
+      flex: 1; overflow: hidden;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      position: relative;
+    }
+    .tab-panel {
+      display: none;
+      position: absolute; inset: 0;
+      overflow: auto; padding: 14px;
+    }
+    .tab-panel.active { display: block; }
+
+    /* dashboard panel — no outer padding, cards provide their own */
+    #tab-dashboard { padding: 0; }
+    #tab-dashboard.active { display: flex; flex-direction: column; overflow: hidden; }
+
+    /* raw panel */
+    #tab-rawjson.active { display: flex; flex-direction: column; padding: 0; }
+
+    /* debug (combined) panel */
+    #tab-debug.active { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+    #raw-toolbar {
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: flex-end;
+      padding: 7px 12px;
+      background: var(--bg); border-bottom: 1px solid var(--border);
+    }
+    #copy-btn {
+      border: none;
+      background: linear-gradient(135deg, var(--accent) 0%, #6366f1 100%);
+      color: #fff; padding: 5px 14px; border-radius: 6px;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      letter-spacing: 0.02em;
+      box-shadow: 0 1px 4px rgba(79,70,229,0.35);
+      transition: opacity 0.15s, transform 0.1s, background 0.2s;
+    }
+    #copy-btn:hover  { opacity: 0.85; transform: translateY(-1px); }
+    #copy-btn:active { opacity: 1; transform: none; }
+    #copy-btn.copied {
+      background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+      box-shadow: 0 1px 4px rgba(22,163,74,0.35);
+      opacity: 1;
+    }
+    #raw-json-tree {
+      flex: 1; overflow: auto; padding: 14px;
+    }
+    #raw-json-tree .tj-root {
+      font-size: var(--card-font-size, 12px); line-height: 1.7;
+    }
+
+    /* ── dashboard ── */
+    #dashboard-container {
+      flex: 1; min-height: 0; overflow-y: auto;
+      padding: 12px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    #dashboard-container > .dash-card { flex-shrink: 0; }
+    .dash-empty {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: var(--text-muted); font-size: 13px;
+      text-align: center; padding: 30px 20px; line-height: 1.7;
+      gap: 8px;
+    }
+    .dash-empty-icon { font-size: 32px; opacity: 0.35; }
+
+    /* dashboard cards — styled like node cards */
+    .dash-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid #d1d5db;
+      border-radius: 8px; overflow: hidden;
+      transition: box-shadow 0.15s;
+    }
+    .dash-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.07); }
+    .dash-card.dragging { opacity: 0.35; }
+    .dash-card.insert-before { border-top: 2.5px solid var(--accent); }
+    .dash-card.insert-after  { border-bottom: 2.5px solid var(--accent); }
+
+    .card-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 10px;
+      background: var(--bg); border-bottom: 1px solid var(--border);
+    }
+
+    .card-drag-handle {
+      color: var(--text-muted); flex-shrink: 0;
+      font-size: 14px; line-height: 1;
+      user-select: none; letter-spacing: -1px;
+      padding: 2px 3px; border-radius: 3px; cursor: grab;
+    }
+    .card-drag-handle:active { cursor: grabbing; }
+    .card-header:hover .card-drag-handle { background: var(--border); }
+
+    .card-name-wrap { flex: 1; min-width: 0; }
+    .card-key {
+      font-size: 12.5px; font-weight: 600; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      display: block;
+    }
+    .card-path {
+      font-size: 10px; color: var(--text-muted);
+      font-family: Consolas, Monaco, monospace;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      flex-shrink: 0; max-width: 140px;
+    }
+    .card-source-badge {
+      font-size: 9px; font-weight: 700; padding: 1px 5px;
+      border-radius: 8px; background: #dbeafe; color: #1e40af;
+      flex-shrink: 0; white-space: nowrap; letter-spacing: 0.02em;
+    }
+
+    .card-remove {
+      flex-shrink: 0; width: 22px; height: 22px;
+      border: none; background: transparent;
+      color: var(--text-muted); cursor: pointer;
+      border-radius: 4px; padding: 0; font-size: 13px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.12s, color 0.12s;
+    }
+    .card-remove:hover { background: var(--danger-bg); color: var(--danger); }
+
+    .card-body {
+      padding: 8px 10px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .card-value-container { /* kept for any external references */
+      font-family: Consolas, Monaco, 'Courier New', monospace;
+      font-size: var(--card-font-size, 12px); line-height: 1.55;
+    }
+
+    /* primitives */
+    .cv-str  { color: var(--cv-str,  #2e7d32); }
+    .cv-num  { color: var(--cv-num,  #1565c0); }
+    .cv-true  { color: var(--cv-true,  #2e7d32); }
+    .cv-false { color: var(--cv-false, #c62828); }
+    .cv-null { color: #c62828; font-style: italic; }
+
+    /* property list (object) */
+    .cv-prop-list   { display: flex; flex-direction: column; width: 100%; gap: 2px; min-width: 0; }
+    .cv-prop-row    { display: flex; gap: 8px; align-items: flex-start; padding: 2px 0; min-height: 20px; min-width: 0; }
+    .cv-prop-key    { color: var(--text-muted); white-space: nowrap; flex-shrink: 0; font-weight: 500;
+                      font-size: 11px; min-width: 70px; padding-top: 1px; }
+    .cv-prop-row > span:last-child { min-width: 0; word-break: break-word; overflow-wrap: anywhere; }
+    /* nested object header label */
+    .cv-obj-key     { color: var(--text-muted); font-size: 10px; font-weight: 700;
+                      text-transform: uppercase; letter-spacing: 0.05em;
+                      margin-top: 6px; margin-bottom: 1px; padding-bottom: 2px;
+                      border-bottom: 1px solid var(--border); }
+    /* non-primitive values indented below their key */
+    .cv-prop-nested { padding-left: 6px; border-left: 2px solid var(--border); margin-left: 0; margin-bottom: 4px; min-width: 0; overflow: hidden; }
+
+    /* array blocks */
+    .cv-arr-block { display: flex; flex-direction: column; gap: 1px; padding-left: 3px; border-left: 2px solid rgba(0,0,0,0.08); margin-left: 1px; }
+    .cv-arr-row   { word-break: break-word; line-height: 1.5; }
+    .cv-list-dot  { color: var(--text-muted); flex-shrink: 0; }
+    .cv-arr-sep   { border-top: 1px solid var(--border); margin: 4px 0; }
+    .cv-arr-obj-block { padding: 2px 0; }
+
+    /* compact fallback */
+    .cv-compact { color: var(--text); word-break: break-all; white-space: pre-wrap; }
+
+    /* ── error tab badge ── */
+    .err-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: #b91c1c; color: #fff;
+      border-radius: 10px; font-size: 10px; font-weight: 700;
+      min-width: 16px; height: 16px; padding: 0 4px;
+      margin-left: 5px; line-height: 1;
+    }
+    .tab-btn.active .err-badge { background: rgba(255,255,255,0.3); }
+
+    /* ── errors tab panel ── */
+    #tab-errors { padding: 0; }
+    #tab-errors.active {
+      display: flex; flex-direction: column;
+      position: absolute; inset: 0; overflow: hidden;
+    }
+
+    #dashboard-toolbar,
+    #errors-toolbar {
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+      padding: 6px 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    #errors-container {
+      flex: 1; overflow-y: auto; min-height: 0;
+      padding: 12px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    /* Prevent cards from shrinking — they must overflow so the container scrolls */
+    #errors-container > * { flex-shrink: 0;
+    }
+
+    /* error source group header */
+    .err-source-group {
+      font-size: 10.5px; font-weight: 700; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.07em;
+      padding: 6px 2px 4px; margin-top: 4px;
+    }
+    .err-source-group:first-child { margin-top: 0; padding-top: 0; }
+
+    .errors-empty {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 8px;
+      color: #15803d; font-size: 13px; text-align: center;
+      padding: 30px 20px; line-height: 1.7;
+    }
+    .errors-empty-icon { font-size: 30px; }
+
+    /* ── error cards — same structure as debug cards, red theme ── */
+    .err-entry.flow-node-card {
+      border-color: #fca5a5;
+      border-left-color: #b91c1c;
+      background: #fff5f5;
+    }
+    .err-entry .flow-node-header {
+      background: #fee2e2;
+      border-bottom-color: #fca5a5;
+    }
+    .err-entry.flow-node-card.collapsed .flow-node-header { border-bottom: none; }
+
+    /* collapse button — red tint on hover */
+    .err-entry .card-collapse-btn { color: #b91c1c; opacity: 0.6; }
+    .err-entry .card-collapse-btn:hover { background: rgba(185,28,28,0.1); opacity: 1; }
+
+    /* title = last path segment */
+    .err-entry .flow-node-name { color: #7f1d1d; }
+
+    /* breadcrumb path below the title */
+    .err-entry-breadcrumb {
+      font-family: Consolas, Monaco, monospace;
+      font-size: 10px; margin-top: 2px;
+      white-space: normal; word-break: break-word; overflow-wrap: anywhere;
+    }
+    .err-breadcrumb-seg  { color: #be123c; opacity: 0.7; }
+    .err-breadcrumb-last { color: #9f1239; font-weight: 600; }
+    .err-breadcrumb-sep  { color: #e11d48; opacity: 0.4; }
+
+    /* go-to-debug button */
+    .err-goto-btn {
+      border: none; background: transparent;
+      color: #b91c1c; cursor: pointer; flex-shrink: 0;
+      font-size: 11px; font-weight: 600;
+      border-radius: 4px; padding: 2px 7px;
+      transition: background 0.12s;
+      white-space: nowrap;
+    }
+    .err-goto-btn:hover { background: rgba(185,28,28,0.1); }
+
+    /* value body */
+    .err-entry .flow-node-body { background: #fff5f5; }
+    .err-entry-value {
+      font-family: Consolas, Monaco, 'Courier New', monospace;
+      font-size: var(--card-font-size, 12px); line-height: 1.55;
+      word-break: break-word; white-space: pre-wrap;
+      margin: 0; color: #1f2328;
+    }
+
+    /* flash highlight when jumped to from error tab — red outline fades out */
+    @keyframes card-flash {
+      0%   { box-shadow: 0 0 0 3px #b91c1c, 0 2px 12px rgba(185,28,28,0.35); border-left-color: #b91c1c !important; }
+      60%  { box-shadow: 0 0 0 2px rgba(185,28,28,0.4), 0 2px 8px rgba(185,28,28,0.15); }
+      100% { box-shadow: none; }
+    }
+    .card-highlight { animation: card-flash var(--flash-duration, 3000ms) ease-out forwards; }
+
+    /* ── flow debug node cards ── */
+    #flowdebug-container { display: flex; flex-direction: column; gap: 8px; }
+    /* Prevent flex children from shrinking — they must overflow so the container scrolls */
+    #flowdebug-container > * { flex-shrink: 0; }
+
+    .flow-section-title {
+      font-size: 10.5px; font-weight: 700; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.07em;
+      padding: 6px 2px 2px; margin-top: 16px;
+      border-top: 1px solid var(--border); padding-top: 10px;
+    }
+    .flow-section-title:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+
+    .flow-not-shown-summary {
+      margin-top: 4px; padding: 7px 10px;
+      border: 1px solid var(--border); border-radius: 7px;
+      background: var(--surface); display: flex; flex-direction: column; gap: 4px;
+    }
+    .flow-not-shown-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      font-size: 11.5px;
+    }
+    .flow-not-shown-label {
+      font-family: Consolas, Monaco, monospace; color: var(--text-muted);
+    }
+    .flow-not-shown-status {
+      font-size: 10.5px; font-weight: 600; border-radius: 4px;
+      padding: 1px 7px; white-space: nowrap;
+    }
+    .flow-not-shown-empty   { background: #fef9c3; color: #854d0e; }
+    .flow-not-shown-missing { background: var(--surface); color: var(--text-muted);
+                               border: 1px solid var(--border); }
+    .flow-not-shown-hidden  { background: var(--surface); color: var(--text-muted);
+                               border: 1px solid var(--border); font-style: italic; }
+
+    .flow-node-card {
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--border);
+      border-radius: 8px; overflow: hidden;
+      background: var(--surface);
+      min-width: 0;
+    }
+    .flow-node-header {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 7px 10px;
+      background: var(--bg); border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      border-radius: 8px 8px 0 0; overflow: hidden;
+    }
+    .flow-node-card.collapsed .flow-node-header { border-bottom: none; }
+    .flow-node-card.collapsed .flow-node-body  { display: none; }
+    .dash-card.collapsed .card-header          { border-bottom: none; }
+    .dash-card.collapsed .card-body            { display: none; }
+    .card-collapse-btn {
+      flex-shrink: 0; width: 18px; height: 18px; margin-top: 1px;
+      border: none; background: transparent; padding: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-muted); cursor: pointer;
+      font-size: 10px; border-radius: 3px;
+      transition: background 0.12s, color 0.12s;
+    }
+    .card-collapse-btn:hover { background: rgba(0,0,0,0.07); color: var(--text); }
+    .flow-node-index {
+      flex-shrink: 0; min-width: 20px; text-align: right;
+      font-size: 10px; font-weight: 700; color: var(--text-muted);
+      font-family: Consolas, Monaco, monospace;
+    }
+    .flow-node-name-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .flow-node-name {
+      font-size: 12.5px; font-weight: 600; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .flow-node-workflow {
+      font-size: 10px; color: var(--accent);
+      background: rgba(99,102,241,0.10); border: 1px solid rgba(99,102,241,0.30);
+      border-radius: 3px; padding: 1px 5px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      align-self: flex-start;
+    }
+    /* Executed Function cards */
+    .exec-fn-body { gap: 4px; }
+    .exec-fn-row {
+      display: flex; align-items: baseline; gap: 6px;
+      font-size: 11.5px; line-height: 1.5;
+    }
+    .exec-fn-label {
+      flex-shrink: 0; width: 26px; text-align: right;
+      font-size: 10px; font-weight: 700; font-family: Consolas, Monaco, monospace;
+      color: var(--text-muted); letter-spacing: 0.02em;
+    }
+    .exec-fn-value {
+      flex: 1; min-width: 0; word-break: break-all;
+      font-family: Consolas, Monaco, monospace; font-size: 11px; color: var(--text);
+    }
+    .exec-fn-error .exec-fn-label { color: #b91c1c; }
+    .exec-fn-error .exec-fn-value { color: #b91c1c; }
+
+    /* LLM Call cards */
+    .llm-call-body { gap: 4px; }
+    .llm-finish-badge {
+      flex-shrink: 0; font-size: 10px; font-weight: 700;
+      padding: 1px 7px; border-radius: 10px; white-space: nowrap;
+    }
+    .llm-stat {
+      flex-shrink: 0; font-size: 10px; color: var(--text-muted);
+      font-family: Consolas, Monaco, monospace;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 4px; padding: 1px 5px; white-space: nowrap;
+    }
+    .llm-msg {
+      display: flex; align-items: baseline; gap: 5px;
+      font-size: 11.5px; line-height: 1.5;
+      padding: 2px 0;
+    }
+    .llm-msg-icon {
+      flex-shrink: 0; width: 14px; text-align: center;
+      font-size: 11px; color: var(--text-muted);
+    }
+    .llm-msg-text { flex: 1; min-width: 0; word-break: break-word; }
+    .llm-msg-system  .llm-msg-icon { color: #6b7280; }
+    .llm-msg-system  .llm-msg-text { color: var(--text-muted); font-style: italic; }
+    .llm-msg-user    .llm-msg-icon { color: #0369a1; }
+    .llm-msg-user    .llm-msg-text { color: var(--text); }
+    .llm-msg-tool-call .llm-msg-icon { color: var(--accent); font-weight: 700; }
+    .llm-fn-name { color: var(--accent); font-family: Consolas, Monaco, monospace; font-weight: 600; font-size: 11px; }
+    .llm-fn-args { color: var(--text-muted); font-family: Consolas, Monaco, monospace; font-size: 10.5px; }
+    .llm-msg-tool-result .llm-msg-icon { color: #6b7280; }
+    .llm-msg-tool-result .llm-msg-text { color: var(--text-muted); font-family: Consolas, Monaco, monospace; font-size: 10.5px; }
+    .llm-msg-response .llm-msg-icon { color: #15803d; }
+    .llm-msg-response .llm-msg-text { color: var(--text); }
+
+    .truncated-expand-btn {
+      font-size: 11px; font-family: Consolas, Monaco, monospace;
+      color: var(--accent);
+      background: rgba(99,102,241,0.07); border: 1px dashed rgba(99,102,241,0.4);
+      border-radius: 4px; padding: 3px 8px; cursor: pointer;
+      display: inline-block; margin: 2px 0;
+    }
+    .truncated-expand-btn:hover {
+      background: rgba(99,102,241,0.15); border-style: solid;
+    }
+    .flow-node-type {
+      font-size: 10px; color: var(--text-muted);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      flex-shrink: 0; max-width: 120px;
+    }
+    .flow-node-status {
+      flex-shrink: 0; font-size: 10px; font-weight: 700;
+      padding: 1px 8px; border-radius: 10px; white-space: nowrap;
+      margin-top: 1px;
+    }
+    .flow-node-body {
+      padding: 8px 10px;
+      display: flex; flex-direction: column; gap: 6px;
+      min-width: 0; overflow: hidden;
+    }
+    .flow-node-error {
+      font-size: 12px; color: #991b1b;
+      background: #fff5f5; border: 1px solid #fca5a5;
+      border-left: 3px solid #dc2626;
+      border-radius: 4px; padding: 5px 8px;
+      word-break: break-word; white-space: pre-wrap;
+      font-family: Consolas, Monaco, monospace;
+    }
+    .flow-node-props {
+      display: flex; flex-direction: column; gap: 6px;
+      font-family: Consolas, Monaco, monospace; font-size: var(--card-font-size, 12px);
+    }
+    .btn-dims-indicator { font-size: 11px; color: var(--text-muted); padding: 4px 2px; }
+    .btn-dims-indicator span { font-weight: 600; color: var(--text); }
+
+    .flow-field-toggle { cursor: pointer; user-select: none; }
+    .flow-field-toggle:hover { color: var(--accent); }
+    .field-toggle-icon { font-size: 8px; margin-right: 2px; opacity: 0.6; }
+    .field-preview { color: var(--text-muted); font-family: monospace; font-size: 11px; white-space: pre-wrap; word-break: break-all; opacity: 0.75; }
+    .field-expand-confirm { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 4px 0; }
+    .field-expand-confirm-msg { font-size: 11px; color: var(--text-muted); font-style: italic; }
+    .field-expand-yes, .field-expand-no {
+      font-size: 10px; padding: 2px 8px; border-radius: 4px; cursor: pointer;
+      border: 1px solid var(--border); background: none; transition: background 0.12s;
+    }
+    .field-expand-yes { color: var(--accent); border-color: var(--accent); }
+    .field-expand-yes:hover { background: rgba(79,70,229,0.08); }
+    .field-expand-no { color: var(--text-muted); }
+    .field-expand-no:hover { background: rgba(0,0,0,0.05); }
+
+    /* ── Unified card body ── */
+
+    /* Section head: label + trailing hairline */
+    .card-section-head {
+      display: flex; align-items: center; gap: 8px;
+      margin: 8px 0 3px; padding-left: 8px;
+    }
+    .card-section-head:first-child { margin-top: 2px; }
+    .card-section-label {
+      font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-muted); flex-shrink: 0;
+    }
+    .card-section-rule { flex: 1; height: 1px; background: var(--border); }
+
+    /* Error section head — red variant */
+    .card-section-head.error-section .card-section-label { color: #b91c1c; opacity: 1; }
+    .card-section-head.error-section .card-section-rule  { background: #fca5a5; }
+
+    /* Warning section head — amber variant */
+    .card-section-head.warning-section .card-section-label { color: #d97706; opacity: 1; }
+    .card-section-head.warning-section .card-section-rule  { background: #fcd34d; }
+
+    /* Body rows — indented, muted key + colored value */
+    .card-prop-row {
+      display: flex; align-items: flex-start; gap: 6px;
+      padding: 2px 0 2px 16px;
+    }
+    .card-prop-key {
+      font-size: 11px; color: var(--text-muted); font-weight: 400;
+      white-space: nowrap; flex-shrink: 0; min-width: 55px; padding-top: 1px;
+    }
+    .card-prop-val {
+      font-size: 12px; font-weight: 500;
+      word-break: break-word; overflow-wrap: anywhere; flex: 1; min-width: 0;
+    }
+    .card-stacked-indent {
+      padding-left: 12px;
+      border-left: 2px solid var(--border);
+      margin: 2px 0 4px 8px;
+    }
+    .card-prop-key-stacked {
+      font-size: 10px; color: var(--text-muted); font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      margin-top: 5px; margin-bottom: 1px; padding-left: 8px;
+    }
+    .card-prop-val-stacked {
+      font-size: 11px; font-weight: 400;
+      word-break: break-word; overflow-wrap: anywhere;
+      white-space: pre-wrap; line-height: 1.45; margin-bottom: 2px;
+      padding-left: 8px;
+    }
+
+    /* Error block at top of card body */
+    .card-error-block {
+      font-size: 11px; color: #b91c1c;
+      background: #fff5f5; border-left: 3px solid #b91c1c;
+      padding: 4px 8px; border-radius: 3px; margin-bottom: 4px;
+      line-height: 1.45; word-break: break-word; white-space: pre-wrap;
+      font-family: Consolas, Monaco, monospace;
+    }
+
+    /* Warning card: amber left border + tinted header */
+    .flow-node-card.warning-card { border-left-color: #d97706 !important; }
+    .flow-node-card.warning-card > .flow-node-header { background: #fffbeb; }
+
+    /* Warning body row */
+    .card-warn-key {
+      font-size: 11px; color: #92400e; font-weight: 600;
+      padding: 2px 0 1px 8px;
+    }
+    .card-warn-val {
+      font-size: 11px; color: #92400e;
+      padding: 1px 0 4px 16px; word-break: break-word; white-space: pre-wrap;
+      font-family: Consolas, Monaco, monospace;
+    }
+
+    /* Nested object key header (cv-obj-key) + indented block — keep as-is */
+    /* Collapsible large-object rows (legacy appendFieldRow) — kept for LLM/Durations */
+    .flow-node-prop { display: flex; flex-direction: column; gap: 2px; }
+    .node-io-label {
+      font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--accent); opacity: 0.6; margin-top: 4px; margin-bottom: 1px;
+    }
+    .flow-node-prop-key {
+      display: block; color: var(--text-muted); font-weight: 500;
+      font-size: 11px;
+    }
+    .flow-node-prop-val {
+      display: block; word-break: break-word;
+      padding-left: 10px;
+    }
+    .flow-node-complex-label {
+      font-size: 10.5px; font-weight: 700; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.05em;
+      margin-bottom: 3px;
+    }
+    .flow-node-complex-body {
+      font-family: Consolas, Monaco, 'Courier New', monospace;
+      font-size: 12px; line-height: 1.55;
+    }
+
+    .debug-tool-btn {
+      border: none; background: none; padding: 0;
+      color: var(--text-muted); font-size: 11px; cursor: pointer;
+      text-decoration: underline; text-underline-offset: 2px;
+      transition: color 0.12s;
+    }
+    .debug-tool-btn:hover  { color: var(--text); }
+    .debug-tool-btn:active { color: var(--accent); }
+
+    /* Keyboard shortcut capture input */
+    .shortcut-capture {
+      font-family: monospace; font-size: 12px;
+      padding: 3px 8px; border-radius: 4px;
+      border: 1px solid var(--border); background: var(--bg-card);
+      color: var(--text); cursor: pointer; width: 160px; text-align: center;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .shortcut-capture:hover { border-color: var(--accent); }
+    .shortcut-capture.shortcut-recording {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
+      color: var(--text-muted);
+    }
+
+    /* Node augmentation JSON button in card header */
+    .node-aug-btn {
+      flex-shrink: 0; padding: 0 5px; border-radius: 3px;
+      border: 1px solid var(--border); background: none;
+      color: var(--text-muted); font-size: 10px; line-height: 1.5;
+      cursor: pointer; white-space: nowrap; font-family: Consolas, Monaco, monospace;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+    }
+    .node-aug-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    /* Node highlighting button in card header */
+    .node-hl-btn {
+      flex-shrink: 0; padding: 0 5px; border-radius: 3px;
+      border: 1px solid var(--border); background: none;
+      color: var(--text-muted); font-size: 12px; line-height: 1.4;
+      cursor: pointer; white-space: nowrap;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+    }
+    .node-hl-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .node-hl-btn.hl-active { background: var(--hl-color, #f59e0b); color: #fff; border-color: var(--hl-color, #f59e0b); }
+
+    /* JSON popup button inline with field key */
+    .json-popup-btn {
+      margin-left: 6px; padding: 0 4px; border-radius: 3px;
+      border: 1px solid var(--border); background: none;
+      color: var(--text-muted); font-size: 10px; line-height: 1.4;
+      cursor: pointer; vertical-align: middle; white-space: nowrap;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+    }
+    .json-popup-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    /* pin checkbox in scalar property rows */
+    .flow-node-prop-cb {
+      display: table-cell; vertical-align: middle;
+      padding-right: 4px; padding-bottom: 3px;
+    }
+    .flow-pin-cb {
+      width: 12px; height: 12px; margin: 0; margin-top: 2px; cursor: pointer;
+      accent-color: #4F46E5; flex-shrink: 0; vertical-align: middle;
+    }
+
+    /* ── plain / error ── */
+    #plain-section { overflow: auto; }
+    #plain-pre {
+      margin: 0;
+      font-family: Consolas, Monaco, 'Courier New', monospace;
+      font-size: 12.5px; line-height: 1.65;
+      white-space: pre-wrap; word-break: break-word; color: var(--text);
+    }
+    #error-section { align-items: center; justify-content: center; }
+    .error-msg {
+      text-align: center; padding: 40px 20px;
+      color: var(--danger); font-size: 14px; font-weight: 500;
+    }
+    .error-msg span {
+      display: block; margin-top: 8px;
+      font-size: 12px; font-weight: 400; color: var(--text-muted);
+    }
+
+    /* ── settings tab ── */
+    #tab-settings { padding: 0; }
+    #tab-settings.active { display: flex; flex-direction: column; }
+
+    #settings-body {
+      flex: 1; overflow-y: auto; padding: 18px 16px;
+      display: flex; flex-direction: column; gap: 22px;
+    }
+
+    .settings-saved-wrap { display: flex; justify-content: flex-end; height: 18px; }
+    .settings-saved-badge {
+      font-size: 11px; font-weight: 600; color: #16a34a;
+      background: #dcfce7; border-radius: 20px; padding: 1px 10px;
+      opacity: 0; transition: opacity 0.25s;
+    }
+    .settings-saved-badge.visible { opacity: 1; }
+
+    .settings-section { display: flex; flex-direction: column; gap: 14px; }
+    .settings-section-title {
+      font-size: 10px; font-weight: 700; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.09em;
+      padding: 5px 8px; border-radius: 4px;
+      background: rgba(0,0,0,0.045);
+    }
+
+    .settings-row {
+      display: flex; align-items: center; gap: 16px;
+      justify-content: space-between;
+    }
+    /* sub-rows (e.g. truncate limit under truncate toggle) get a left indent */
+    .settings-row-sub { padding-left: 14px; border-left: 2px solid var(--border); }
+
+    /* Flow sections drag list */
+    .flow-sec-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+    .flow-sec-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 8px; border-radius: 6px;
+      border: 1px solid var(--border); background: var(--bg);
+      cursor: default; user-select: none;
+    }
+    .flow-sec-item.flow-sec-over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, white); }
+    .flow-sec-item.flow-sec-dragging { opacity: 0.4; }
+    .flow-sec-handle { cursor: grab; color: var(--text-muted); font-size: 16px; line-height: 1; flex-shrink: 0; }
+    .flow-sec-handle:active { cursor: grabbing; }
+    .flow-sec-label { flex: 1; font-size: 12px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .flow-sec-page-label { font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--accent); margin: 8px 0 5px 2px; }
+
+    .settings-label { flex: 1; min-width: 0; }
+    .settings-label-text { font-size: 13px; font-weight: 500; color: var(--text); line-height: 1.3; }
+    .settings-label-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; line-height: 1.4; }
+
+    /* toggle switch */
+    .toggle {
+      position: relative; display: inline-block;
+      width: 38px; height: 22px; flex-shrink: 0;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .toggle-track {
+      position: absolute; inset: 0;
+      background: #d1d5db; border-radius: 22px;
+      transition: background 0.2s; cursor: pointer;
+    }
+    .toggle input:checked + .toggle-track { background: var(--accent); }
+    .toggle-track::after {
+      content: ''; position: absolute; left: 3px; top: 3px;
+      width: 16px; height: 16px;
+      background: #fff; border-radius: 50%;
+      transition: transform 0.2s;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+    }
+    .toggle input:checked + .toggle-track::after { transform: translateX(16px); }
+
+    /* number / select */
+    .settings-input {
+      border: 1.5px solid var(--border); background: var(--surface);
+      color: var(--text); border-radius: 7px; padding: 5px 8px;
+      font-size: 13px; font-family: inherit; flex-shrink: 0;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .settings-input:focus {
+      outline: none; border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-light);
+    }
+    .settings-number { width: 72px; text-align: right; }
+    .settings-select { min-width: 128px; cursor: pointer; }
+
+    /* range */
+    .settings-range-wrap { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .settings-range {
+      width: 100px; accent-color: var(--accent); cursor: pointer;
+    }
+    .settings-range-val {
+      font-size: 11.5px; color: var(--text-muted);
+      font-family: Consolas, Monaco, monospace;
+      min-width: 34px; text-align: right;
+    }
+    input.settings-range-val {
+      width: 46px; border: 1px solid var(--border); border-radius: 4px;
+      padding: 1px 3px; background: var(--surface); outline: none;
+      -moz-appearance: textfield;
+    }
+    input.settings-range-val::-webkit-outer-spin-button,
+    input.settings-range-val::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+    /* test count row */
+    .test-count-row {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .test-count-value {
+      font-size: 11px; font-weight: 400; color: #aaa;
+      font-family: Consolas, Monaco, monospace;
+    }
+    .test-count-date {
+      font-size: 11px; color: #aaa; flex: 1;
+    }
+    .test-count-reset-btn {
+      border: 1.5px solid var(--border); background: var(--surface);
+      color: var(--text-muted); padding: 4px 10px; border-radius: 6px;
+      font-size: 12px; cursor: pointer; min-width: 32px;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .test-count-reset-btn:hover { background: var(--danger-bg); border-color: #fca5a5; }
+
+    /* reset button */
+    .settings-reset-btn {
+      border: 1.5px solid var(--border); background: var(--surface);
+      color: var(--text-muted); padding: 6px 16px; border-radius: 7px;
+      font-size: 12px; font-weight: 500; cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+      align-self: flex-start;
+    }
+    .settings-reset-btn:hover {
+      background: var(--danger-bg); color: var(--danger);
+      border-color: #fca5a5;
+    }
+
+    /* gear icon tab button — slightly larger */
+    .tab-btn[data-tab="settings"] { font-size: 15px; padding: 4px 10px; }
+
+    /* color picker */
+    .settings-color {
+      width: 36px; height: 28px; padding: 2px;
+      border: 1.5px solid var(--border); border-radius: 6px;
+      background: var(--surface); cursor: pointer; flex-shrink: 0;
+    }
+    .settings-color::-webkit-color-swatch-wrapper { padding: 0; }
+    .settings-color::-webkit-color-swatch { border-radius: 4px; border: none; }
+  </style>
+</head>
+<body>
+
+  <div id="header">
+    <h1>Aisera Debug</h1>
+    <span id="source-badge">Source: —</span>
+    <button id="close-btn" title="Close sidebar">&#x2715;</button>
+  </div>
+
+  <div id="main">
+
+    <div id="loading">Loading debug data…</div>
+
+    <!-- JSON tabs section -->
+    <div id="tab-section" class="section">
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+        <button class="tab-btn"        data-tab="debug">Debug</button>
+        <button class="tab-btn"        data-tab="errors">Errors<span id="error-count-badge" class="err-badge" style="display:none"></span></button>
+        <button class="tab-btn"        data-tab="rawjson">Raw JSON</button>
+        <button class="tab-btn"        data-tab="settings">&#9881;</button>
+      </div>
+
+      <div id="panel-wrap">
+
+        <!-- Tab 1 — Dashboard -->
+        <div id="tab-dashboard" class="tab-panel active">
+          <div id="dashboard-toolbar">
+            <button id="dashboard-expand-all"   class="debug-tool-btn">Expand All</button>
+            <button id="dashboard-collapse-all" class="debug-tool-btn">Collapse All</button>
+          </div>
+          <div id="dashboard-container">
+            <div class="dash-empty">
+              <div class="dash-empty-icon">&#9776;</div>
+              No keys pinned yet.<br>
+              Go to the <strong>Debug</strong> tab and check the keys you want to track here.
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2 — Debug (combined Flow Debug + Debug Info) -->
+        <div id="tab-debug" class="tab-panel">
+          <div id="flowdebug-status-bar" style="flex-shrink:0; display:flex; align-items:center; gap:8px;
+               padding:6px 12px; background:var(--bg); border-bottom:1px solid var(--border);">
+            <span id="flowdebug-status-label" style="display:none; font-size:11px; font-weight:600;
+                  color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em;">Status</span>
+            <span id="flowdebug-status-badge" style="display:none; font-size:11px; font-weight:700;
+                  padding:1px 8px; border-radius:10px; background:#e0e7ff; color:#3730a3;"></span>
+            <div style="flex:1;"></div>
+            <button id="debug-expand-all"   class="debug-tool-btn">Expand All</button>
+            <button id="debug-collapse-all" class="debug-tool-btn">Collapse All</button>
+            <button id="debug-select-all"   class="debug-tool-btn">Select All</button>
+            <button id="debug-deselect-all" class="debug-tool-btn">Deselect All</button>
+          </div>
+          <div id="debug-body" style="flex:1; overflow:auto; padding:12px; min-height:0;
+               display:flex; flex-direction:column; gap:8px;">
+            <div id="flowdebug-container"></div>
+            <div id="treejson-container"></div>
+          </div>
+        </div>
+
+        <!-- Tab 3 — Errors -->
+        <div id="tab-errors" class="tab-panel">
+          <div id="errors-toolbar">
+            <button id="errors-expand-all" class="debug-tool-btn">Expand All</button>
+            <button id="errors-collapse-all" class="debug-tool-btn">Collapse All</button>
+          </div>
+          <div id="errors-container"></div>
+        </div>
+
+        <!-- Tab 4 — Raw JSON -->
+        <div id="tab-rawjson" class="tab-panel">
+          <div id="raw-toolbar">
+            <button id="copy-btn">Copy JSON</button>
+          </div>
+          <div id="raw-json-tree"></div>
+        </div>
+
+        <!-- Tab 5 — Settings -->
+        <div id="tab-settings" class="tab-panel">
+          <div id="settings-body">
+
+            <div class="settings-saved-wrap">
+              <span id="settings-saved-indicator" class="settings-saved-badge">&#10003; Saved</span>
+            </div>
+
+            <!-- Display -->
+            <div class="settings-section">
+              <div class="settings-section-title">Display</div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Push page content</div>
+                  <div class="settings-label-desc">Shift the page to the left when the panel opens so no content is hidden underneath it</div>
+                </div>
+                <label class="toggle"><input type="checkbox" id="setting-push-page-content"><span class="toggle-track"></span></label>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Auto-fill test email</div>
+                  <div class="settings-label-desc">Automatically fills the email field when the Test Flow modal appears on the workflow details page</div>
+                </div>
+                <label class="toggle"><input type="checkbox" id="setting-auto-fill-email"><span class="toggle-track"></span></label>
+              </div>
+
+              <div class="settings-row settings-row-sub" id="row-auto-fill-email-address">
+                <div class="settings-label">
+                  <div class="settings-label-text">Test email address</div>
+                  <div class="settings-label-desc">Email address inserted into the Test Flow modal</div>
+                </div>
+                <input type="text" id="setting-auto-fill-email-address" class="settings-input" placeholder="test@test.com" style="width:180px">
+              </div>
+
+              <div class="settings-row settings-row-sub">
+                <div class="settings-label">
+                  <div class="settings-label-text">Auto-click OK</div>
+                  <div class="settings-label-desc">Automatically clicks the OK button in the Test Flow modal after filling the email</div>
+                </div>
+                <label class="toggle"><input type="checkbox" id="setting-auto-click-ok"><span class="toggle-track"></span></label>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Collapse cards by default</div>
+                  <div class="settings-label-desc">New cards in the Debug tab start collapsed. Use Expand All to open them.</div>
+                </div>
+                <label class="toggle"><input type="checkbox" id="setting-cards-collapsed-by-default"><span class="toggle-track"></span></label>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Auto-collapse long fields</div>
+                  <div class="settings-label-desc">Automatically collapse node card fields whose value exceeds the character limit</div>
+                </div>
+                <label class="toggle"><input type="checkbox" id="setting-auto-collapse-enabled"><span class="toggle-track"></span></label>
+              </div>
+
+              <div class="settings-row settings-row-sub" id="row-auto-collapse-threshold">
+                <div class="settings-label">
+                  <div class="settings-label-text">Auto-collapse character limit</div>
+                  <div class="settings-label-desc">Fields longer than this are collapsed automatically. The preview shows up to the "Truncation character limit" number of characters.</div>
+                </div>
+                <input type="number" id="setting-request-collapse-threshold" class="settings-input settings-number" min="1" max="99999" step="100">
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Truncate long values</div>
+                  <div class="settings-label-desc">Shorten certain strings in the Debug tab cards</div>
+                </div>
+                <label class="toggle"><input type="checkbox" id="setting-truncate-enabled"><span class="toggle-track"></span></label>
+              </div>
+
+              <div class="settings-row settings-row-sub" id="row-truncate-limit">
+                <div class="settings-label">
+                  <div class="settings-label-text">Truncation character limit</div>
+                  <div class="settings-label-desc">Strings longer than this are cut off in the display</div>
+                </div>
+                <input type="number" id="setting-truncate-limit" class="settings-input settings-number" min="5" max="500" step="5">
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Collapse large items</div>
+                  <div class="settings-label-desc">Replace items whose serialized JSON exceeds the limit with a placeholder</div>
+                </div>
+                <label class="toggle"><input type="checkbox" id="setting-item-size-limit-enabled"><span class="toggle-track"></span></label>
+              </div>
+
+              <div class="settings-row settings-row-sub" id="row-item-size-limit">
+                <div class="settings-label">
+                  <div class="settings-label-text">Item size limit (chars)</div>
+                  <div class="settings-label-desc">Items larger than this (strings, objects, arrays) are collapsed</div>
+                </div>
+                <input type="number" id="setting-item-size-limit" class="settings-input settings-number" min="500" max="50000" step="500">
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Subflow node indent</div>
+                  <div class="settings-label-desc">Horizontal offset per nesting level for subflow cards</div>
+                </div>
+                <div class="settings-range-wrap">
+                  <input type="range" id="setting-subflow-indent" class="settings-range" min="8" max="48" step="4">
+                  <input type="number" id="subflow-indent-val" class="settings-range-val" min="8" max="48" step="4">
+                </div>
+              </div>
+            </div>
+
+            <!-- Behavior -->
+            <div class="settings-section">
+              <div class="settings-section-title">Behavior</div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Default tab on load</div>
+                  <div class="settings-label-desc">Tab shown when debug data first appears</div>
+                </div>
+                <select id="setting-default-tab" class="settings-input settings-select">
+                  <option value="dashboard">Dashboard</option>
+                  <option value="debug">Debug</option>
+                  <option value="errors">Errors</option>
+                  <option value="rawjson">Raw JSON</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Node Augmentation -->
+            <div class="settings-section">
+              <div class="settings-section-title">Node Augmentation</div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Enable node augmentation</div>
+                  <div class="settings-label-desc">Adds a <code style="font-size:10px;">{ }</code> button to JavaScriptV2 and Action node cards. Clicking it opens a full JSON popup for that node.</div>
+                </div>
+                <label class="toggle"><input type="checkbox" id="setting-node-augmentation-enabled"><span class="toggle-track"></span></label>
+              </div>
+            </div>
+
+            <!-- Node Highlighting -->
+            <div class="settings-section">
+              <div class="settings-section-title">Node Highlighting</div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Enable node highlighting</div>
+                  <div class="settings-label-desc">Adds a <code style="font-size:10px;">◎</code> button to node cards. Clicking it outlines the matching node in the workflow designer.</div>
+                </div>
+                <label class="toggle"><input type="checkbox" id="setting-node-highlight-enabled"><span class="toggle-track"></span></label>
+              </div>
+
+              <div class="settings-row" id="row-node-highlight-color">
+                <div class="settings-label">
+                  <div class="settings-label-text">Highlight color</div>
+                  <div class="settings-label-desc">Color of the outline applied to the highlighted node</div>
+                </div>
+                <input type="color" id="setting-node-highlight-color" class="settings-color" value="#f59e0b">
+              </div>
+            </div>
+
+            <!-- Error Detection -->
+            <div class="settings-section">
+              <div class="settings-section-title">Error Detection</div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Flag warnings as errors</div>
+                  <div class="settings-label-desc">Include keys containing "warning" in the Errors tab</div>
+                </div>
+                <label class="toggle"><input type="checkbox" id="setting-warnings-as-errors"><span class="toggle-track"></span></label>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Show node errors only</div>
+                  <div class="settings-label-desc">Hide errors from top-level keys (e.g. debugInfoV2); only show errors from individual flow nodes</div>
+                </div>
+                <label class="toggle"><input type="checkbox" id="setting-nodes-only"><span class="toggle-track"></span></label>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Show node errors first</div>
+                  <div class="settings-label-desc">List flow node errors at the top of the Errors tab</div>
+                </div>
+                <label class="toggle"><input type="checkbox" id="setting-nodes-first"><span class="toggle-track"></span></label>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Error value preview length</div>
+                  <div class="settings-label-desc">Max characters shown per error entry value</div>
+                </div>
+                <input type="number" id="setting-error-preview-length" class="settings-input settings-number" min="100" max="5000" step="100">
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Error card flash duration</div>
+                  <div class="settings-label-desc">How long the red highlight glows when jumping from an error card (seconds)</div>
+                </div>
+                <div class="settings-range-wrap">
+                  <input type="range" id="setting-flash-duration" class="settings-range" min="500" max="8000" step="250">
+                  <input type="number" id="flash-duration-val" class="settings-range-val" min="0.5" max="8" step="0.25">
+                </div>
+              </div>
+            </div>
+
+            <!-- Flow Debug Sections -->
+            <div class="settings-section">
+              <div class="settings-section-title">Flow Debug Sections</div>
+              <div class="settings-label-desc" style="font-size:11px; color:var(--text-muted); line-height:1.5; margin-top:-6px;">
+                Drag to reorder. Check to show in the Flow Debug tab. Each page type has its own configuration.
+              </div>
+              <div class="flow-sec-page-label">AI Lens</div>
+              <ul id="flow-sections-list-ai-lens" class="flow-sec-list"></ul>
+              <div class="flow-sec-page-label" style="margin-top:14px;">Workflow Details</div>
+              <ul id="flow-sections-list-workflow" class="flow-sec-list"></ul>
+            </div>
+
+            <!-- Keyboard Shortcuts -->
+            <div class="settings-section">
+              <div class="settings-section-title">Keyboard Shortcuts</div>
+              <div class="settings-label-desc" style="padding: 0 2px 8px; color: var(--text-muted); font-size: 11px;">
+                Click a shortcut to record a new key combination. Press Escape to cancel.
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Toggle panel</div>
+                  <div class="settings-label-desc">Open or close the debug panel</div>
+                </div>
+                <input type="text" id="setting-shortcut-toggle" class="shortcut-capture" readonly>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Previous tab</div>
+                  <div class="settings-label-desc">Switch to the tab to the left</div>
+                </div>
+                <input type="text" id="setting-shortcut-prev-tab" class="shortcut-capture" readonly>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Next tab</div>
+                  <div class="settings-label-desc">Switch to the tab to the right</div>
+                </div>
+                <input type="text" id="setting-shortcut-next-tab" class="shortcut-capture" readonly>
+              </div>
+            </div>
+
+            <!-- Debug Button -->
+            <div class="settings-section">
+              <div class="settings-section-title">Debug Button</div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Background color</div>
+                  <div class="settings-label-desc">Fill color of the floating Debug button</div>
+                </div>
+                <input type="color" id="setting-btn-bg-color" class="settings-color">
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Text color</div>
+                  <div class="settings-label-desc">Label color of the floating Debug button</div>
+                </div>
+                <input type="color" id="setting-btn-text-color" class="settings-color">
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Font size</div>
+                  <div class="settings-label-desc">Text size of the button label (px)</div>
+                </div>
+                <div class="settings-range-wrap">
+                  <input type="range" id="setting-btn-font-size" class="settings-range" min="7" max="22" step="1">
+                  <input type="number" id="btn-font-size-val" class="settings-range-val" min="7" max="22" step="1">
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Opacity</div>
+                  <div class="settings-label-desc">Transparency of the floating Debug button (%)</div>
+                </div>
+                <div class="settings-range-wrap">
+                  <input type="range" id="setting-btn-opacity" class="settings-range" min="10" max="100" step="5">
+                  <input type="number" id="btn-opacity-val" class="settings-range-val" min="10" max="100" step="5">
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Width</div>
+                  <div class="settings-label-desc">Button width (px)</div>
+                </div>
+                <div class="settings-range-wrap">
+                  <input type="range" id="setting-btn-width" class="settings-range" min="20" max="200" step="5">
+                  <input type="number" id="btn-width-val" class="settings-range-val" min="20" max="200" step="5">
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Height</div>
+                  <div class="settings-label-desc">Button height (px)</div>
+                </div>
+                <div class="settings-range-wrap">
+                  <input type="range" id="setting-btn-height" class="settings-range" min="15" max="80" step="5">
+                  <input type="number" id="btn-height-val" class="settings-range-val" min="15" max="80" step="5">
+                </div>
+              </div>
+
+              <div class="btn-dims-indicator" id="btn-dims-indicator">
+                Current size: <span id="btn-dims-value">—</span>
+              </div>
+            </div>
+
+            <!-- Appearance -->
+            <div class="settings-section">
+              <div class="settings-section-title">Appearance</div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Accent color</div>
+                  <div class="settings-label-desc">Buttons, active tabs, toggle switches</div>
+                </div>
+                <input type="color" id="setting-accent-color" class="settings-color">
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">String value color</div>
+                  <div class="settings-label-desc">Color for text strings in card values</div>
+                </div>
+                <input type="color" id="setting-cv-str-color" class="settings-color">
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Number value color</div>
+                  <div class="settings-label-desc">Color for numeric values in cards</div>
+                </div>
+                <input type="color" id="setting-cv-num-color" class="settings-color">
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">True value color</div>
+                  <div class="settings-label-desc">Color for <em>true</em> boolean values in cards</div>
+                </div>
+                <input type="color" id="setting-cv-true-color" class="settings-color">
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">False value color</div>
+                  <div class="settings-label-desc">Color for <em>false</em> boolean values in cards</div>
+                </div>
+                <input type="color" id="setting-cv-false-color" class="settings-color">
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">UI font size</div>
+                  <div class="settings-label-desc">Base font for labels and interface text (px)</div>
+                </div>
+                <div class="settings-range-wrap">
+                  <input type="range" id="setting-base-font-size" class="settings-range" min="11" max="18" step="1">
+                  <input type="number" id="base-font-size-val" class="settings-range-val" min="11" max="18" step="1">
+                </div>
+              </div>
+
+              <div class="settings-row">
+                <div class="settings-label">
+                  <div class="settings-label-text">Card value font size</div>
+                  <div class="settings-label-desc">Monospace font size inside card value displays (px)</div>
+                </div>
+                <div class="settings-range-wrap">
+                  <input type="range" id="setting-card-font-size" class="settings-range" min="9" max="16" step="1">
+                  <input type="number" id="card-font-size-val" class="settings-range-val" min="9" max="16" step="1">
+                </div>
+              </div>
+            </div>
+
+            <!-- Reset -->
+            <div class="settings-section">
+              <button id="settings-reset-btn" class="settings-reset-btn">Reset to Defaults</button>
+            </div>
+
+            <!-- Test Count -->
+            <div class="settings-section">
+              <div class="test-count-row">
+                <span id="test-count-display" class="test-count-value">0</span>
+                <span id="test-count-reset-date" class="test-count-date">Never reset</span>
+                <button id="test-count-reset-btn" class="test-count-reset-btn">&nbsp;&nbsp;</button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- plain text -->
+    <div id="plain-section" class="section">
+      <pre id="plain-pre"></pre>
+    </div>
+
+    <!-- error -->
+    <div id="error-section" class="section">
+      <div class="error-msg">
+        No debug data found.
+        <span>The page may not have loaded debug info yet, or it was not detected.</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="scripts/jquery.min.js"></script>
+  <script src="lib/treejson.js"></script>
+  <script src="debugViewer.js"></script>
+
+</body>
+</html>
