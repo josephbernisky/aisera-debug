@@ -1,0 +1,11 @@
+.DS_Store
+*.zip
+*.rtf
+*.json
+!manifest.json
+CLAUDE.md
+Console DebugInfo.js
+Get Page Type.js
+Get XHR Response.js
+generate_xhr_comparison_pdf.py
+docs/
